@@ -31,6 +31,7 @@ with open('outline_coords.txt') as input:
         out_array.append([lat, lng])
 
 print(out_array)
-print("CLASS BRANCH")
+
+
 
 #with open('outline_coords_wgs84.txt', 'w') as output:
