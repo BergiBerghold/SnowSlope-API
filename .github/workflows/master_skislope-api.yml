@@ -29,7 +29,7 @@ jobs:
 
       - name: GDAL Install
         run: |
-          sudo add-apt-repository ppa:ubuntugis/ppa && sudo apt-get update
+          sudo add-apt-repository ppa:ubuntugis/ppa
           sudo apt-get update
           sudo apt-get install gdal-bin
           sudo apt-get install libgdal-dev
@@ -62,6 +62,15 @@ jobs:
         with:
           name: python-app
           path: .
+
+      - name: GDAL Install in Prod
+        run: |
+          sudo add-apt-repository ppa:ubuntugis/ppa
+          sudo apt-get update
+          sudo apt-get install gdal-bin
+          sudo apt-get install libgdal-dev
+          export CPLUS_INCLUDE_PATH=/usr/include/gdal
+          export C_INCLUDE_PATH=/usr/include/gdal
           
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
