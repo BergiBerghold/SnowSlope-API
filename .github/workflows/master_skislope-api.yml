@@ -30,8 +30,8 @@ jobs:
       - name: GDAL stuff
         run: |
           pip download GDAL
-          python setup.py build_ext --include-dirs=/usr/include/gdal/
-          sudo python setup.py install --include-dirs=/usr/include/gdal
+        # python setup.py build_ext --include-dirs=/usr/include/gdal/
+        # sudo python setup.py install --include-dirs=/usr/include/gdal
       
       - name: Install dependencies
         run: pip install -r requirements.txt
