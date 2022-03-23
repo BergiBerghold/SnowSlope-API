@@ -26,6 +26,8 @@ class datapoint(BaseModel):
 
 @app.post("/calculation_endpoint")
 async def calculation_endpoint(data: datapoint):
+    return {"filename": None, "code": 13}
+
     tiles_filename, return_code = do_flood_fill(lat=data.positionLat,
                                                 long=data.positionLng,
                                                 min_slope=data.minimumGradient,
