@@ -26,15 +26,9 @@ jobs:
         run: |
           python -m venv venv
           source venv/bin/activate
-
-      - name: GDAL stuff
-        run: |
-          pip download GDAL
-        # python setup.py build_ext --include-dirs=/usr/include/gdal/
-        # sudo python setup.py install --include-dirs=/usr/include/gdal
       
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install --no-use-wheel -r requirements.txt --global-option=build_ext --global-option="-I/usr/include/gdal"
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
       
