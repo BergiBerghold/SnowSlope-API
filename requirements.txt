@@ -1,0 +1,5 @@
+gdal==3.0.4
+numpy==1.19.4
+fastapi==0.75.0
+pydantic==1.9.0
+requests==2.27.1

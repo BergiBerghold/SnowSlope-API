@@ -4,7 +4,7 @@ from osgeo import gdal, osr
 import numpy as np
 import hashlib
 import time
-import cv2
+#import cv2
 
 
 def load_elevation_model(wgs84_lat, wgs84_long, tile_size):
