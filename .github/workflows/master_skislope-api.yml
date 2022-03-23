@@ -26,9 +26,18 @@ jobs:
         run: |
           python -m venv venv
           source venv/bin/activate
+
+      - name: GDAL Install
+        run: |
+          sudo add-apt-repository ppa:ubuntugis/ppa && sudo apt-get update
+          sudo apt-get update
+          sudo apt-get install gdal-bin
+          sudo apt-get install libgdal-dev
+          export CPLUS_INCLUDE_PATH=/usr/include/gdal
+          export C_INCLUDE_PATH=/usr/include/gdal
       
       - name: Install dependencies
-        run: pip install --no-use-wheel -r requirements.txt --global-option=build_ext --global-option="-I/usr/include/gdal"
+        run: pip install -r requirements.txt
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
       
