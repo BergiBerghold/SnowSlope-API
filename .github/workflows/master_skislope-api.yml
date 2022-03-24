@@ -65,6 +65,18 @@ jobs:
         with:
           name: python-app
           path: .
+
+      - name: Install GDAL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++
+          sudo apt-get install -y libgdal-dev
+          sudo apt-get install -y gdal-bin
+          export CPLUS_INCLUDE_PATH=/usr/include/gdal
+          export C_INCLUDE_PATH=/usr/include/gdal
+
+      - name: Display GDAL version
+        run: ogrinfo --version
           
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
