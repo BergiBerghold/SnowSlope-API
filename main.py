@@ -1,6 +1,6 @@
 from subprocess import Popen, PIPE
-# from osgeo.gdalconst import *
-# from osgeo import gdal, osr
+from osgeo.gdalconst import *
+from osgeo import gdal, osr
 import numpy as np
 import hashlib
 import time

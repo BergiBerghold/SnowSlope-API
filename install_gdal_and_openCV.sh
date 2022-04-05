@@ -14,4 +14,6 @@ pip install gdal==2.1.3
 
 apt-get install -y libglib2.0-0 libsm6 libxrender1 libxext6 ffmpeg
 
+cp openCV_custom_build/cv2.abi3.so antenv/lib/python3.8/site-packages/cv2/
+
 #chmod +x install_gdal_and_openCV.sh && ./install_gdal_and_openCV.sh && gunicorn -w 4 -k uvicorn.workers.UvicornWorker api:app
