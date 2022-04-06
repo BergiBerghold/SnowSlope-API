@@ -26,14 +26,12 @@ class datapoint(BaseModel):
 
 @app.post("/calculation_endpoint")
 async def calculation_endpoint(data: datapoint):
-    return {"filename": None, "code": 13}
-
     tiles_filename, return_code = do_flood_fill(lat=data.positionLat,
                                                 long=data.positionLng,
                                                 min_slope=data.minimumGradient,
                                                 max_slope=data.maximumGradient)
 
     if tiles_filename:
-        app.mount(f"/{tiles_filename}", StaticFiles(directory=f"Kaprun_output/{tiles_filename}"), name=tiles_filename)
+        app.mount(f"/{tiles_filename}", StaticFiles(directory=f"tiles_output/{tiles_filename}"), name=tiles_filename)
 
     return {"filename": tiles_filename, "code": return_code}

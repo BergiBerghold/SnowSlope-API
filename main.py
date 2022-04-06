@@ -97,7 +97,7 @@ def write_output_raster(out_data, datasource, filename, tile_offset):
 
     out_ds = None
 
-    process = Popen(["python3", "gdal2tiles_custom.py", "--webviewer=none", "--zoom=13-18", "--processes=8", "temp.tif", f"Kaprun_output/{filename}"], stdout=PIPE, stderr=PIPE)
+    process = Popen(["python3", "gdal2tiles_custom.py", "--webviewer=none", "--zoom=13-18", "--processes=8", "temp.tif", f"tiles_output/{filename}"], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
     print(stderr, stdout)
 
