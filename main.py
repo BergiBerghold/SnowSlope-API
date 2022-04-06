@@ -125,14 +125,16 @@ def check_if_tile_too_small(array):
 
 def transform_wgs84_to_pixel(wgs84_lat, wgs84_long, datasource):
     source_system = osr.SpatialReference()
+    source_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     source_system.SetWellKnownGeogCS('WGS84')
 
     target_system = osr.SpatialReference()
+    target_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     #target_system.ImportFromWkt(datasource.GetProjection())
     target_system.ImportFromProj4('+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs')
 
     transform = osr.CoordinateTransformation(source_system, target_system)
-    x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_lat, wgs84_long)
+    x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
 
     geo_matrix = datasource.GetGeoTransform()
 
@@ -213,7 +215,7 @@ if __name__ == "__main__":
     #start = time.perf_counter()
     # print("Took %s" % (time.perf_counter() - start))
 
-    lng, lat = 12.711837,47.274029
+    lng, lat = 12.82268,47.20402
 
     print(calculate_slope(lat, lng, 0, 45))
 
