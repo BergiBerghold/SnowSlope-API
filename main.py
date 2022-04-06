@@ -97,7 +97,7 @@ def write_output_raster(out_data, datasource, filename, tile_offset):
 
     out_ds = None
 
-    process = Popen(["gdal2tiles.py", "--webviewer=none", "--zoom=13-18", "--processes=8", "temp.tif", f"Kaprun_output/{filename}"], stdout=PIPE, stderr=PIPE)
+    process = Popen(["python3", "gdal2tiles_custom.py", "--webviewer=none", "--zoom=13-18", "--processes=8", "temp.tif", f"Kaprun_output/{filename}"], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
     print(stderr, stdout)
 
@@ -125,13 +125,18 @@ def check_if_tile_too_small(array):
 
 def transform_wgs84_to_pixel(wgs84_lat, wgs84_long, datasource):
     source_system = osr.SpatialReference()
-    source_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     source_system.SetWellKnownGeogCS('WGS84')
 
     target_system = osr.SpatialReference()
-    target_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     #target_system.ImportFromWkt(datasource.GetProjection())
     target_system.ImportFromProj4('+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs')
+
+    try:
+        source_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        target_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+    except:
+        pass
 
     transform = osr.CoordinateTransformation(source_system, target_system)
     x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
