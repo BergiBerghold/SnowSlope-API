@@ -1,8 +1,13 @@
 import tests.test_parameters as test_parameters
 from skislope_api.main import *
 import pytest
+import os
 
-test_dgm_path = 'test_dgms/test_dgm.tif'
+if os.path.exists('tests/test_dgms/test_dgm.tif'):
+    test_dgm_path = 'tests/test_dgms/test_dgm.tif'
+
+elif os.path.exists('test_dgms/test_dgm.tif'):
+    test_dgm_path = 'test_dgms/test_dgm.tif'
 
 '''
 Test for function calculate_tile_dimensions

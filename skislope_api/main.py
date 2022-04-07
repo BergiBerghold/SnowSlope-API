@@ -104,6 +104,9 @@ def crop_to_smallest_size(array):
     x_min, y_min = coords.min(axis=0)
     x_max, y_max = coords.max(axis=0)
 
+    print((array.tolist(), array[x_min:x_max + 1, y_min:y_max + 1].tolist(), y_min, x_min))
+    exit()
+
     return array[x_min:x_max + 1, y_min:y_max + 1], y_min, x_min
 
 
@@ -234,7 +237,7 @@ def do_flood_fill(lat, long, min_slope, max_slope, tile_size):
 
 
 def calculate_slope(lat, long, min_slope, max_slope):
-    tile_size = 2048
+    tile_size = 10
 
     while True:
         filename, return_code = do_flood_fill(lat, long, min_slope, max_slope, tile_size)
@@ -254,6 +257,6 @@ if __name__ == "__main__":
     #start = time.perf_counter()
     # print("Took %s" % (time.perf_counter() - start))
 
-    lng, lat = 12.82268, 47.20402
+    lng, lat = 12.6010,47.2520
 
-    print(calculate_slope(lat, lng, 0, 45))
+    print(calculate_slope(lat, lng, 30, 45))
