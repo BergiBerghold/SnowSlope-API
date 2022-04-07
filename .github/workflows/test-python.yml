@@ -41,7 +41,7 @@ jobs:
         
         ogrinfo --version
         
-        pip install gdal
+        pip install gdal==3.3.2
 
     - name: Lint with flake8
       run: |
