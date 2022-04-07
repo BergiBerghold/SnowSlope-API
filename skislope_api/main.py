@@ -104,9 +104,6 @@ def crop_to_smallest_size(array):
     x_min, y_min = coords.min(axis=0)
     x_max, y_max = coords.max(axis=0)
 
-    print((array.tolist(), array[x_min:x_max + 1, y_min:y_max + 1].tolist(), y_min, x_min))
-    exit()
-
     return array[x_min:x_max + 1, y_min:y_max + 1], y_min, x_min
 
 
@@ -257,6 +254,6 @@ if __name__ == "__main__":
     #start = time.perf_counter()
     # print("Took %s" % (time.perf_counter() - start))
 
-    lng, lat = 12.6010,47.2520
+    lng, lat = 13.0459,47.2613
 
-    print(calculate_slope(lat, lng, 30, 45))
+    print(calculate_slope(lat, lng, 0, 45))

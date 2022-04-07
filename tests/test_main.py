@@ -63,3 +63,20 @@ parameters = test_parameters.check_if_tile_too_small
 @pytest.mark.parametrize('array, output', parameters)
 def test_check_if_tile_too_small(array, output):
     assert output == check_if_tile_too_small(np.asarray(array))
+
+
+'''
+Test for function crop_to_smallest_size
+'''
+
+parameters = test_parameters.crop_to_smallest_size
+
+
+@pytest.mark.parametrize('array_in, array_out, y_min, x_min', parameters)
+def test_crop_to_smallest_size(array_in, array_out, y_min, x_min):
+    output_array, output_y_min, output_x_min = crop_to_smallest_size(np.asarray(array_in))
+
+    assert output_array.tolist() == array_out
+    assert (output_x_min, output_y_min) == (x_min, y_min)
+
+
