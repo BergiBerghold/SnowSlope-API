@@ -1,6 +1,6 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from main import calculate_slope
+from skislope_api.main import calculate_slope
 from pydantic import BaseModel
 from fastapi import FastAPI
 
