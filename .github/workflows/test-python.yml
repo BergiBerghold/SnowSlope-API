@@ -39,6 +39,8 @@ jobs:
         export CPLUS_INCLUDE_PATH=/usr/include/gdal
         export C_INCLUDE_PATH=/usr/include/gdal
         
+        ogrinfo --version
+        
         pip install gdal
 
     - name: Lint with flake8
