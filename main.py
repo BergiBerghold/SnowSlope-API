@@ -147,7 +147,7 @@ def run_tile_generation(filename):
 
 
 def do_flood_fill(lat, long, min_slope, max_slope, tile_size):
-    model_file = 'DGM_Salzburg.tif'
+    model_file = '../DGM_Salzburg.tif'
     datasource = gdal.Open(model_file)
     databand = datasource.GetRasterBand(1)
     nodata_value = databand.GetNoDataValue()  # TODO -e28 nodata value?
