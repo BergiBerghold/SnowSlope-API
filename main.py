@@ -7,123 +7,52 @@ import time
 import cv2
 
 
-def load_elevation_model(wgs84_lat, wgs84_long, tile_size):
-    datasource = gdal.Open("DGM_Salzburg.tif")
-    band = datasource.GetRasterBand(1)
-    nodata_value = band.GetNoDataValue() #TODO -e28 nodata value?
+def load_elevation_model(databand, tile_dimensions):
+    elevation_model_array = databand.ReadAsArray(tile_dimensions['x_offset'],
+                                                 tile_dimensions['y_offset'],
+                                                 tile_dimensions['x_size'],
+                                                 tile_dimensions['y_size']).astype('float32')
 
-    endpoint = transform_wgs84_to_pixel(wgs84_lat, wgs84_long, datasource)
+    return elevation_model_array
 
-    valid_point = calculate_tile_offsets(band, endpoint, tile_size)
 
-    if valid_point:
-        x_offset, y_offset, x_tilesize, y_tilesize, warning_code = valid_point
+def calculate_tile_dimensions(databand, endpoint, tile_size):
+    endpoint_x, endpoint_y = endpoint
+    datasize_x, datasize_y = databand.XSize, databand.YSize
+
+    if not ((0 <= endpoint_x <= datasize_x) and (0 <= endpoint_y <= datasize_y)):
+        '''
+        Return tiling function as false and set the error code to 1 in case the endpoint is outside of the map
+        '''
+        error_code = 1
+        return False, False, error_code
+
+    x_offset = max(int(endpoint_x - tile_size / 2), 0)
+    y_offset = max(int(endpoint_y - tile_size / 2), 0)
+
+    x_size = min(tile_size, datasize_x - x_offset)
+    y_size = min(tile_size, datasize_y - y_offset)
+
+    endpoint = endpoint_x - x_offset, endpoint_y - y_offset
+
+    tile_dimensions = {'x_offset': x_offset,
+                       'y_offset': y_offset,
+                       'x_size': x_size,
+                       'y_size': y_size}
+
+    if x_size < tile_size or y_size < tile_size:
+        '''
+        Warning code 11 in case the endpoint is close to the edge of the map and the tile becomes smaller
+        '''
+        warning_code = 11
+
     else:
-        '''
-        Return loading function as false in case the endpoint is outside of the map
-        Error code = 1
-        '''
-        return False, 1
+        warning_code = 0
 
-    elevation_model_array = band.ReadAsArray(x_offset, y_offset, x_tilesize, y_tilesize).astype('float32')
-
-    endpoint = endpoint[0] - x_offset, endpoint[1] - y_offset
-
-    if elevation_model_array[endpoint] == nodata_value:
-        '''
-        Return loading function as false in case the endpoint is in Nodata region
-        Error code = 2
-        '''
-        return False, 2
-
-    if nodata_value in elevation_model_array:
-        '''
-        Warning code 11 in case part of the tile is a Nodata region
-        '''
-        warning_code = 11
-
-    return datasource, elevation_model_array, endpoint, (x_offset, y_offset), warning_code
+    return tile_dimensions, endpoint, warning_code
 
 
-def calculate_tile_offsets(databand, endpoint, tile_size):
-    point_x, point_y = endpoint
-    size_x, size_y = databand.XSize, databand.YSize
-
-    if not ( (0 <= point_x <= size_x) and (0 <= point_y <= size_y) ):
-        '''Return tiling function as false in case the endpoint is outside of the map'''
-        return False
-
-    x_offset = max( int(point_x - tile_size/2), 0 )
-    y_offset = max( int(point_y - tile_size/2), 0 )
-
-    x_tilesize = min(tile_size, size_x - x_offset)
-    y_tilesize = min(tile_size, size_y - y_offset)
-
-    warning_code = 0
-
-    if x_tilesize < tile_size or y_tilesize < tile_size:
-        warning_code = 11
-        '''Warning code 11 in case the endpoint is close to the edge of the map and the tile becomes smaller'''
-
-    return x_offset, y_offset, x_tilesize, y_tilesize, warning_code
-
-
-def write_output_raster(out_data, datasource, filename, tile_offset):
-    if check_if_tile_too_small(out_data):
-        '''
-        If True then the calculated area borders on the edge of the tile. That means the program
-        has to be run again with a bigger tile size.
-        '''
-        tile_too_small = True
-        return 0, tile_too_small
-
-    out_data, x_crop_offset, y_crop_offset = crop_to_smallest_size(out_data)
-    x_tile_offset, y_tile_offset = tile_offset
-    size_x, size_y = out_data.shape
-
-    driver = datasource.GetDriver()
-    out_ds = driver.Create("temp.tif", size_y, size_x, 3, GDT_Byte) #TODO find a better solution for coloring, edit gdal2tiles maybe
-
-    out_band = out_ds.GetRasterBand(1)
-    out_band.WriteArray(out_data, 0, 0)
-
-    out_band.SetNoDataValue(0)
-    out_band.FlushCache()
-
-    (GT_0, GT_1, GT_2, GT_3, GT_4, GT_5) = datasource.GetGeoTransform()
-
-    out_ds.SetGeoTransform((GT_0 + x_crop_offset + x_tile_offset, GT_1, GT_2, GT_3 - y_crop_offset - y_tile_offset, GT_4, GT_5))
-    out_ds.SetProjection(datasource.GetProjection())
-
-    out_ds = None
-
-    process = Popen(["python3", "gdal2tiles_custom.py", "--webviewer=none", "--zoom=13-18", "--processes=8", "temp.tif", f"tiles_output/{filename}"], stdout=PIPE, stderr=PIPE)
-    stdout, stderr = process.communicate()
-    print(stderr, stdout)
-
-    while process.poll() is None:
-        time.sleep(0.5)
-
-    tile_too_small = False
-    return process.returncode, tile_too_small
-
-
-def crop_to_smallest_size(array):
-    coords = np.argwhere(array != 0)
-    x_min, y_min = coords.min(axis=0)
-    x_max, y_max = coords.max(axis=0)
-
-    return array[x_min:x_max + 1, y_min:y_max + 1], y_min, x_min
-
-
-def check_if_tile_too_small(array):
-    a = array[0, :] + array[-1, :]
-    b = array[:, 0] + array[:, -1]
-
-    return np.any(a) or np.any(b)
-
-
-def transform_wgs84_to_pixel(wgs84_lat, wgs84_long, datasource):
+def transform_wgs84_to_pixel(datasource, wgs84_lat, wgs84_long):
     source_system = osr.SpatialReference()
     source_system.SetWellKnownGeogCS('WGS84')
 
@@ -135,8 +64,8 @@ def transform_wgs84_to_pixel(wgs84_lat, wgs84_long, datasource):
         source_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         target_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
-    except:
-        pass
+    except AttributeError as error:
+        print(f'Caught Attribute Error: {error} This is not a problem')
 
     transform = osr.CoordinateTransformation(source_system, target_system)
     x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
@@ -150,51 +79,156 @@ def transform_wgs84_to_pixel(wgs84_lat, wgs84_long, datasource):
     pixel = int((x_target_sys - ul_x) / x_dist)
     line = -int((ul_y - y_target_sys) / y_dist)
 
+    '''pixel, line is x, y in pixel coordinates'''
+
     return pixel, line
 
 
-def do_flood_fill(lat, long, min_slope, max_slope, tile_size):
-    successfully_loaded = load_elevation_model(lat, long, tile_size)
+def check_if_tile_too_small(array):
+    '''
+    The function checks the edges of the array for non Zero values.
+    If True this means the tile was too small.
+    '''
 
-    if successfully_loaded[0]:
-        datasource, elevation_model_array, endpoint, tile_offset, warning_code = successfully_loaded
-    else:
+    a = array[0, :] + array[-1, :]
+    b = array[:, 0] + array[:, -1]
+
+    return np.any(a) or np.any(b)
+
+
+def crop_to_smallest_size(array):
+    '''
+    Crops an array to its smallest size of non Zero values
+    '''
+    coords = np.argwhere(array != 0)
+    x_min, y_min = coords.min(axis=0)
+    x_max, y_max = coords.max(axis=0)
+
+    return array[x_min:x_max + 1, y_min:y_max + 1], y_min, x_min
+
+
+def generate_output_tif(output_array, datasource, total_offset):
+    driver = datasource.GetDriver()
+    size_x, size_y = output_array.shape
+    out_ds = driver.Create("temp.tif", size_y, size_x, 3, GDT_Byte)  # TODO find a better solution for coloring, edit gdal2tiles maybe
+
+    out_band = out_ds.GetRasterBand(1)
+    out_band.WriteArray(output_array, 0, 0)
+
+    out_band.SetNoDataValue(0)
+    out_band.FlushCache()
+
+    (GT_0, GT_1, GT_2, GT_3, GT_4, GT_5) = datasource.GetGeoTransform()
+
+    out_ds.SetGeoTransform((GT_0 + total_offset[0], GT_1, GT_2, GT_3 - total_offset[1], GT_4, GT_5))
+    out_ds.SetProjection(datasource.GetProjection())
+
+    out_ds = None
+
+
+def run_tile_generation(filename):
+    process = Popen(["python3",
+                     "gdal2tiles_custom.py",
+                     "--webviewer=none",
+                     "--zoom=13-18",
+                     "--processes=8",
+                     "temp.tif",
+                     f"tiles_output/{filename}"], stdout=PIPE, stderr=PIPE)
+
+    stdout, stderr = process.communicate()
+    print(stderr, stdout)
+
+    while process.poll() is None:
+        time.sleep(0.1)
+
+    # TODO Delete tile files after a while somehow
+
+    return process.returncode
+
+
+def do_flood_fill(lat, long, min_slope, max_slope, tile_size):
+    model_file = 'DGM_Salzburg.tif'
+    datasource = gdal.Open(model_file)
+    databand = datasource.GetRasterBand(1)
+    nodata_value = databand.GetNoDataValue()  # TODO -e28 nodata value?
+
+    endpoint = transform_wgs84_to_pixel(datasource, lat, long)
+
+    tile_dimensions, endpoint, warning_code = calculate_tile_dimensions(databand, endpoint, tile_size)
+
+    if not tile_dimensions:
         '''
-        Return calculation function as false if endpoint is outside of map or in Nodata region.
+        Return flood fill function as false if endpoint is outside of map.
         Outside of map => Error code 1
-        In Nodata region => Error code 2
         '''
-        error_code = successfully_loaded[1]
+        error_code = 1
         return False, error_code
 
-    x, y = elevation_model_array.shape
-    output_array = np.zeros((x+2, y+2), dtype=np.uint8)
+    elevation_model_array = load_elevation_model(databand, tile_dimensions)
 
-    cv2.floodFill(elevation_model_array, mask=output_array, seedPoint=endpoint,
-                  flags=8 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY, newVal=255,
+    if elevation_model_array[endpoint] == nodata_value:
+        '''
+        Return flood fill function as false in case the endpoint is in Nodata region.
+        In Nodata region => Error code 2
+        '''
+        error_code = 2
+        return False, error_code
+
+    if nodata_value in elevation_model_array:
+        '''
+        Warning code 12 in case part of the tile is a Nodata region
+ 
+        Warning code 13 in case part of the tile is a Nodata region AND
+        the endpoint is close to the edge of the map and the tile becomes smaller
+        
+        Tile becomes smaller                => Warning code 11
+        Nodata in Tile                      => Warning code 12
+        Tile smaller AND nodata in Tile     => Warning code 13
+        '''
+        if warning_code == 0:
+            warning_code = 12
+
+        elif warning_code == 11:
+            warning_code = 13
+
+    x, y = tile_dimensions['x_size'], tile_dimensions['y_size']
+    mask_array = np.zeros((x + 2, y + 2), dtype=np.uint8)
+
+    cv2.floodFill(elevation_model_array,
+                  newVal=0,
+                  mask=mask_array,
+                  seedPoint=endpoint,
+                  flags=8 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY,
                   loDiff=-np.tan(np.deg2rad(min_slope)),
                   upDiff=np.tan(np.deg2rad(max_slope)))
 
-    output_array = output_array[1:-1, 1:-1]
+    mask_array = mask_array[1:-1, 1:-1]
+
+    if check_if_tile_too_small(mask_array):
+        '''
+        Return flood fill function as false if tile size was too small.
+        Tile too small => Error code 4
+        '''
+        error_code = 4
+        return False, error_code
+
+    mask_array, x_crop_offset, y_crop_offset = crop_to_smallest_size(mask_array)
+    total_offset = tile_dimensions['x_offset'] + x_crop_offset, tile_dimensions['y_offset'] + y_crop_offset
+
+    generate_output_tif(mask_array, datasource, total_offset)
 
     hash_input = f"{lat}{long}{min_slope}{max_slope}"
     filename = hashlib.sha1(hash_input.encode("UTF-8")).hexdigest()
 
-    return_code, tile_too_small = write_output_raster(output_array, datasource, filename, tile_offset)
+    return_code = run_tile_generation(filename)
 
     if return_code != 0:
         '''
         Return calculation function as false if tile generation has gone wrong.
-        Error code = 3
+        Tile generation error => Error code 3
         '''
-        return False, 3
-
-    if tile_too_small:
-        '''
-        Return calculation function as false if tile size was too small.
-        Error code = 4
-        '''
-        return False, 4
+        error_code = 3
+        return False, error_code
 
     return filename, warning_code
 
@@ -220,8 +254,6 @@ if __name__ == "__main__":
     #start = time.perf_counter()
     # print("Took %s" % (time.perf_counter() - start))
 
-    lng, lat = 12.82268,47.20402
+    lng, lat = 12.82268, 47.20402
 
     print(calculate_slope(lat, lng, 0, 45))
-
-
