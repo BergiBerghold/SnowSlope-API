@@ -5,9 +5,9 @@ name: Python tests
 
 on:
   push:
-    branches: [ master ]
+    branches: [ implement_testing ]
   pull_request:
-    branches: [ master ]
+    branches: [ implement_testing ]
 
 permissions:
   contents: read
