@@ -18,7 +18,7 @@ cp openCV_custom_build/cv2.abi3.so antenv/lib/python3.8/site-packages/cv2/
 
 #Create Symlink for DGM
 
-ln -s /skislope_dgm/DGM_Salzburg.tif skislope_api/DGM_Salzburg.tif
+ln -s /skislope_dgm/DGM_Salzburg.tif DGM_Salzburg.tif
 
 #Container startup command
-#chmod +x install_gdal_and_openCV.sh && ./install_gdal_and_openCV.sh && gunicorn -w 4 -k uvicorn.workers.UvicornWorker skislope_api/api:app
+#chmod +x install_gdal_and_openCV.sh && ./install_gdal_and_openCV.sh && gunicorn -w 4 -k uvicorn.workers.UvicornWorker skislope_api.api:app
