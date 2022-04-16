@@ -128,7 +128,7 @@ def generate_output_tif(output_array, datasource, total_offset):
 
 def run_tile_generation(filename):
     process = Popen(["python3",
-                     "gdal2tiles_custom.py",
+                     "skislope_api/gdal2tiles_custom.py",
                      "--webviewer=none",
                      "--zoom=13-18",
                      "--processes=8",
