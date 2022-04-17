@@ -1,6 +1,7 @@
 from subprocess import Popen, PIPE
 from osgeo.gdalconst import *
 from osgeo import gdal, osr
+from skimage import feature
 import numpy as np
 import hashlib
 import time
@@ -52,7 +53,7 @@ def calculate_tile_dimensions(databand, endpoint, tile_size):
     return tile_dimensions, endpoint, warning_code
 
 
-def transform_wgs84_to_pixel(datasource, wgs84_lat, wgs84_long):
+def transform_wgs84_to_pixel(datasource, wgs84_coords):
     source_system = osr.SpatialReference()
     source_system.SetWellKnownGeogCS('WGS84')
 
@@ -68,20 +69,44 @@ def transform_wgs84_to_pixel(datasource, wgs84_lat, wgs84_long):
         print(f'Caught Attribute Error: {error} This is not a problem')
 
     transform = osr.CoordinateTransformation(source_system, target_system)
-    x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
-
     geo_matrix = datasource.GetGeoTransform()
 
-    ul_x = geo_matrix[0]
-    ul_y = geo_matrix[3]
-    x_dist = geo_matrix[1]
-    y_dist = geo_matrix[5]
-    pixel = int((x_target_sys - ul_x) / x_dist)
-    line = -int((ul_y - y_target_sys) / y_dist)
+    if type(wgs84_coords) is tuple:
+        wgs84_lat, wgs84_long = wgs84_coords
 
-    '''pixel, line is x, y in pixel coordinates'''
+        x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
 
-    return pixel, line
+        ul_x = geo_matrix[0]
+        ul_y = geo_matrix[3]
+        x_dist = geo_matrix[1]
+        y_dist = geo_matrix[5]
+        pixel = int((x_target_sys - ul_x) / x_dist)
+        line = -int((ul_y - y_target_sys) / y_dist)
+
+        '''pixel, line is x, y in pixel coordinates'''
+
+        return pixel, line
+
+    if type(wgs84_coords) is list:
+        pixel_coords = []
+
+        for point in wgs84_coords:
+            wgs84_lat, wgs84_long = point
+
+            x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
+
+            ul_x = geo_matrix[0]
+            ul_y = geo_matrix[3]
+            x_dist = geo_matrix[1]
+            y_dist = geo_matrix[5]
+            pixel = int((x_target_sys - ul_x) / x_dist)
+            line = -int((ul_y - y_target_sys) / y_dist)
+
+            '''pixel, line is x, y in pixel coordinates'''
+
+            pixel_coords.append((pixel, line))
+
+        return pixel_coords
 
 
 def check_if_tile_too_small(array):
@@ -146,13 +171,22 @@ def run_tile_generation(filename):
     return process.returncode
 
 
+def get_edges_of_area(array):
+    edges_array = feature.canny(array)
+    indices_of_edge = np.transpose(np.nonzero(edges_array))
+
+    indices_of_edge = [(x[0], x[1]) for x in indices_of_edge]
+
+    return indices_of_edge
+
+
 def do_flood_fill(lat, long, min_slope, max_slope, tile_size):
     model_file = 'DGM_Salzburg.tif'
     datasource = gdal.Open(model_file)
     databand = datasource.GetRasterBand(1)
     nodata_value = databand.GetNoDataValue()  # TODO -e28 nodata value?
 
-    endpoint = transform_wgs84_to_pixel(datasource, lat, long)
+    endpoint = transform_wgs84_to_pixel(datasource, (lat, long))
 
     tile_dimensions, endpoint, warning_code = calculate_tile_dimensions(databand, endpoint, tile_size)
 

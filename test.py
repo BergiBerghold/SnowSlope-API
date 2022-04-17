@@ -10,3 +10,9 @@ edges = feature.canny(array)
 
 idx = np.transpose(np.nonzero(edges))
 
+print(idx)
+
+idx = [(x[0], x[1]) for x in idx]
+
+
+print()
