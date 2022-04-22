@@ -1,11 +1,11 @@
-from subprocess import Popen, PIPE
 from osgeo.gdalconst import *
 from osgeo import gdal, osr
-from skimage import feature
+from PIL import Image
 import numpy as np
 import hashlib
 import time
 import cv2
+import os
 
 
 def load_elevation_model(databand, tile_dimensions):
@@ -54,59 +54,71 @@ def calculate_tile_dimensions(databand, endpoint, tile_size):
 
 
 def transform_wgs84_to_pixel(datasource, wgs84_coords):
-    source_system = osr.SpatialReference()
-    source_system.SetWellKnownGeogCS('WGS84')
+    wgs84_system = osr.SpatialReference()
+    wgs84_system.SetWellKnownGeogCS('WGS84')
 
-    target_system = osr.SpatialReference()
-    #target_system.ImportFromWkt(datasource.GetProjection())
-    target_system.ImportFromProj4('+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs')
+    pixel_system = osr.SpatialReference()
+    #pixel_system.ImportFromWkt(datasource.GetProjection())
+    pixel_system.ImportFromProj4('+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs')
 
     try:
-        source_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-        target_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        wgs84_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        pixel_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
     except AttributeError as error:
         print(f'Caught Attribute Error: {error} This is not a problem')
 
-    transform = osr.CoordinateTransformation(source_system, target_system)
+    transform = osr.CoordinateTransformation(wgs84_system, pixel_system)
     geo_matrix = datasource.GetGeoTransform()
 
-    if type(wgs84_coords) is tuple:
-        wgs84_lat, wgs84_long = wgs84_coords
+    wgs84_lat, wgs84_long = wgs84_coords
+    x_pixel_sys, y_pixel_sys, z_pixel_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
 
-        x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
+    ul_x = geo_matrix[0]
+    ul_y = geo_matrix[3]
+    x_dist = geo_matrix[1]
+    y_dist = geo_matrix[5]
+    pixel = int((x_pixel_sys - ul_x) / x_dist)
+    line = int((y_pixel_sys - ul_y) / y_dist)
 
-        ul_x = geo_matrix[0]
-        ul_y = geo_matrix[3]
-        x_dist = geo_matrix[1]
-        y_dist = geo_matrix[5]
-        pixel = int((x_target_sys - ul_x) / x_dist)
-        line = -int((ul_y - y_target_sys) / y_dist)
+    '''pixel, line is x, y in pixel coordinates'''
 
-        '''pixel, line is x, y in pixel coordinates'''
+    return pixel, line
 
-        return pixel, line
 
-    if type(wgs84_coords) is list:
-        pixel_coords = []
+def transform_pixel_to_wgs84(datasource, pixel_coords):
+    wgs84_system = osr.SpatialReference()
+    wgs84_system.SetWellKnownGeogCS('WGS84')
 
-        for point in wgs84_coords:
-            wgs84_lat, wgs84_long = point
+    pixel_system = osr.SpatialReference()
+    #pixel_system.ImportFromWkt(datasource.GetProjection())
+    pixel_system.ImportFromProj4('+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs')
 
-            x_target_sys, y_target_sys, z_target_sys = transform.TransformPoint(wgs84_long, wgs84_lat)
+    try:
+        wgs84_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        pixel_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
-            ul_x = geo_matrix[0]
-            ul_y = geo_matrix[3]
-            x_dist = geo_matrix[1]
-            y_dist = geo_matrix[5]
-            pixel = int((x_target_sys - ul_x) / x_dist)
-            line = -int((ul_y - y_target_sys) / y_dist)
+    except AttributeError as error:
+        print(f'Caught Attribute Error: {error} This is not a problem')
 
-            '''pixel, line is x, y in pixel coordinates'''
+    transform = osr.CoordinateTransformation(pixel_system, wgs84_system)
+    geo_matrix = datasource.GetGeoTransform()
 
-            pixel_coords.append((pixel, line))
+    pixel, line = pixel_coords
 
-        return pixel_coords
+    ul_x = geo_matrix[0]
+    ul_y = geo_matrix[3]
+    x_dist = geo_matrix[1]
+    y_dist = geo_matrix[5]
+    x_pixel_sys = pixel * x_dist + ul_x
+    y_pixel_sys = line * y_dist + ul_y
+
+    x_wgs84_sys, y_wgs84_sys, z_wgs84_sys = transform.TransformPoint(x_pixel_sys, y_pixel_sys)
+
+    lat = y_wgs84_sys
+    long = x_wgs84_sys
+
+    return lat, long
 
 
 def check_if_tile_too_small(array):
@@ -132,57 +144,7 @@ def crop_to_smallest_size(array):
     return array[x_min:x_max + 1, y_min:y_max + 1], y_min, x_min
 
 
-def generate_output_tif(output_array, datasource, total_offset):
-    driver = datasource.GetDriver()
-    size_x, size_y = output_array.shape
-    out_ds = driver.Create("temp.tif", size_y, size_x, 3, GDT_Byte)  # TODO find a better solution for coloring, edit gdal2tiles maybe
-
-    out_band = out_ds.GetRasterBand(1)
-    out_band.WriteArray(output_array, 0, 0)
-
-    out_band.SetNoDataValue(0)
-    out_band.FlushCache()
-
-    (GT_0, GT_1, GT_2, GT_3, GT_4, GT_5) = datasource.GetGeoTransform()
-
-    out_ds.SetGeoTransform((GT_0 + total_offset[0], GT_1, GT_2, GT_3 - total_offset[1], GT_4, GT_5))
-    out_ds.SetProjection(datasource.GetProjection())
-
-    out_ds = None
-
-
-def run_tile_generation(filename):
-    process = Popen(["python3",
-                     "skislope_api/gdal2tiles_custom.py",
-                     "--webviewer=none",
-                     "--zoom=13-18",
-                     "--processes=8",
-                     "temp.tif",
-                     f"tiles_output/{filename}"], stdout=PIPE, stderr=PIPE)
-
-    stdout, stderr = process.communicate()
-    print(stderr, stdout)
-
-    while process.poll() is None:
-        time.sleep(0.1)
-
-    # TODO Delete tile files after a while somehow
-
-    return process.returncode
-
-
-def get_edges_of_area(array):
-    edges_array = feature.canny(array)
-    indices_of_edge = np.transpose(np.nonzero(edges_array))
-
-    indices_of_edge = [(x[0], x[1]) for x in indices_of_edge]
-
-    return indices_of_edge
-
-
-def do_flood_fill(lat, long, min_slope, max_slope, tile_size):
-    model_file = 'DGM_Salzburg.tif'
-    datasource = gdal.Open(model_file)
+def do_flood_fill(lat, long, min_slope, max_slope, tile_size, datasource):
     databand = datasource.GetRasterBand(1)
     nodata_value = databand.GetNoDataValue()  # TODO -e28 nodata value?
 
@@ -249,35 +211,46 @@ def do_flood_fill(lat, long, min_slope, max_slope, tile_size):
     mask_array, x_crop_offset, y_crop_offset = crop_to_smallest_size(mask_array)
     total_offset = tile_dimensions['x_offset'] + x_crop_offset, tile_dimensions['y_offset'] + y_crop_offset
 
-    generate_output_tif(mask_array, datasource, total_offset)
+    upper_left_image_bound = transform_pixel_to_wgs84(datasource, total_offset)
+
+    image_size_y, image_size_x = mask_array.shape
+    lower_right_image_bound = total_offset[0] + image_size_x, total_offset[1] + image_size_y
+    lower_right_image_bound = transform_pixel_to_wgs84(datasource, lower_right_image_bound)
 
     hash_input = f"{lat}{long}{min_slope}{max_slope}"
     filename = hashlib.sha1(hash_input.encode("UTF-8")).hexdigest()
+    filename = f'{filename}.png'
 
-    return_code = run_tile_generation(filename)
+    if not os.path.exists('tiles_output'):
+        os.mkdir('tiles_output')
 
-    if return_code != 0:
-        '''
-        Return calculation function as false if tile generation has gone wrong.
-        Tile generation error => Error code 3
-        '''
-        error_code = 3
-        return False, error_code
+    img = Image.fromarray(mask_array, 'P')
+    img.putpalette([0,0,0,0, 255,0,0,180], rawmode='RGBA')
+    img.save(f'tiles_output/{filename}')
 
-    return filename, warning_code
+    return_data = {'filename': filename, 'image_bounds': [upper_left_image_bound, lower_right_image_bound]}
+
+    return return_data, warning_code
 
 
 def calculate_slope(lat, long, min_slope, max_slope):
+    if os.path.exists('DGM_Salzburg.tif'):
+        model_file = 'DGM_Salzburg.tif'
+
+    elif os.path.exists('../DGM_Salzburg.tif'):
+        model_file = '../DGM_Salzburg.tif'
+
+    datasource = gdal.Open(model_file)
     tile_size = 10
 
     while True:
-        filename, return_code = do_flood_fill(lat, long, min_slope, max_slope, tile_size)
+        filename, return_code = do_flood_fill(lat, long, min_slope, max_slope, tile_size, datasource)
 
         if return_code == 4:
             '''
             Code 4 means the tile size was too small. Doubling Tile size and rerunning
             '''
-            tile_size *= 2
+            tile_size *= 4
             print(f"Initial Tile size was too small, rerunning with tile size {tile_size}")
 
         else:

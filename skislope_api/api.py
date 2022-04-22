@@ -1,6 +1,8 @@
+import os
+
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from skislope_api.main import calculate_slope
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from fastapi import FastAPI
 
@@ -24,14 +26,14 @@ class datapoint(BaseModel):
     positionLng: float
 
 
+app.mount(f"/tiles_output", StaticFiles(directory=f"tiles_output"), name="tiles_output")
+
+
 @app.post("/calculation_endpoint")
 async def calculation_endpoint(data: datapoint):
-    tiles_filename, return_code = calculate_slope(lat=data.positionLat,
-                                                  long=data.positionLng,
-                                                  min_slope=data.minimumGradient,
-                                                  max_slope=data.maximumGradient)
+    return_data, return_code = calculate_slope(lat=data.positionLat,
+                                               long=data.positionLng,
+                                               min_slope=data.minimumGradient,
+                                               max_slope=data.maximumGradient)
 
-    if tiles_filename:
-        app.mount(f"/{tiles_filename}", StaticFiles(directory=f"tiles_output/{tiles_filename}"), name=tiles_filename)
-
-    return {"filename": tiles_filename, "code": return_code}
+    return {"return_data": return_data, "code": return_code}

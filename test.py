@@ -14,5 +14,4 @@ print(idx)
 
 idx = [(x[0], x[1]) for x in idx]
 
-
-print()
+print(idx)
