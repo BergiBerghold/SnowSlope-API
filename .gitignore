@@ -6,7 +6,6 @@
 /output.prj
 /output.dbf
 /output.shx
-/SkiSlope_qGIS_Project.qgz
 /qgisstyle.qml
 /test.geojson
 /red_blue_style.qml
@@ -18,7 +17,7 @@
 /tiles_output/
 /generate_test_data.py
 /misc/
-/skislope_api/DGM_Salzburg.tif
-/skislope_api/temp.tif
-/skislope_api/tiles_output/
+/snowslope_api/DGM_Salzburg.tif
+/snowslope_api/temp.tif
+/snowslope_api/tiles_output/
 /venv/

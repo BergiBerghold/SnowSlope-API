@@ -1,5 +1,5 @@
 import tests.test_parameters as test_parameters
-from skislope_api.main import *
+from snowslope_api.main import *
 import pytest
 import os
 

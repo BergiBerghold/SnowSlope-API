@@ -1,4 +1,4 @@
-from skislope_api.main import *
+from snowslope_api.main import *
 import random
 
 

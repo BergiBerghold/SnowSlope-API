@@ -21,4 +21,4 @@ cp openCV_custom_build/cv2.abi3.so antenv/lib/python3.8/site-packages/cv2/
 ln -s /skislope_dgm/DGM_Salzburg.tif DGM_Salzburg.tif
 
 #Container startup command
-#chmod +x install_gdal_and_openCV.sh && ./install_gdal_and_openCV.sh && gunicorn -w 4 --timeout 300 -k uvicorn.workers.UvicornWorker skislope_api.api:app
+#chmod +x install_gdal_and_openCV.sh && ./install_gdal_and_openCV.sh && gunicorn -w 4 --timeout 300 -k uvicorn.workers.UvicornWorker snowslope_api.api:app
