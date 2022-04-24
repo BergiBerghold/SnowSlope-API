@@ -58,8 +58,8 @@ def transform_wgs84_to_pixel(datasource, wgs84_coords):
     wgs84_system.SetWellKnownGeogCS('WGS84')
 
     pixel_system = osr.SpatialReference()
-    #pixel_system.ImportFromWkt(datasource.GetProjection())
-    pixel_system.ImportFromProj4('+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs')
+    pixel_system.ImportFromWkt(datasource.GetProjection())
+    #pixel_system.ImportFromProj4(proj4_str)
 
     try:
         wgs84_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
@@ -91,8 +91,8 @@ def transform_pixel_to_wgs84(datasource, pixel_coords):
     wgs84_system.SetWellKnownGeogCS('WGS84')
 
     pixel_system = osr.SpatialReference()
-    #pixel_system.ImportFromWkt(datasource.GetProjection())
-    pixel_system.ImportFromProj4('+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs')
+    pixel_system.ImportFromWkt(datasource.GetProjection())
+    #pixel_system.ImportFromProj4(proj4_str)
 
     try:
         wgs84_system.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
@@ -142,6 +142,25 @@ def crop_to_smallest_size(array):
     x_max, y_max = coords.max(axis=0)
 
     return array[x_min:x_max + 1, y_min:y_max + 1], y_min, x_min
+
+
+def calculate_image_bounds_on_map(datasource, array, offset):
+    upper_left_image_bound = transform_pixel_to_wgs84(datasource, offset)
+
+    image_size_y, image_size_x = array.shape
+    lower_right_image_bound = offset[0] + image_size_x, offset[1] + image_size_y
+    lower_right_image_bound = transform_pixel_to_wgs84(datasource, lower_right_image_bound)
+
+    return upper_left_image_bound, lower_right_image_bound
+
+
+def save_array_as_image(array, filename):
+    if not os.path.exists('tiles_output'):
+        os.mkdir('tiles_output')
+
+    img = Image.fromarray(array, 'P')
+    img.putpalette([0,0,0,0, 255,0,0,130], rawmode='RGBA')
+    img.save(f'tiles_output/{filename}')
 
 
 def do_flood_fill(lat, long, min_slope, max_slope, tile_size, datasource):
@@ -211,22 +230,13 @@ def do_flood_fill(lat, long, min_slope, max_slope, tile_size, datasource):
     mask_array, x_crop_offset, y_crop_offset = crop_to_smallest_size(mask_array)
     total_offset = tile_dimensions['x_offset'] + x_crop_offset, tile_dimensions['y_offset'] + y_crop_offset
 
-    upper_left_image_bound = transform_pixel_to_wgs84(datasource, total_offset)
-
-    image_size_y, image_size_x = mask_array.shape
-    lower_right_image_bound = total_offset[0] + image_size_x, total_offset[1] + image_size_y
-    lower_right_image_bound = transform_pixel_to_wgs84(datasource, lower_right_image_bound)
+    upper_left_image_bound, lower_right_image_bound = calculate_image_bounds_on_map(datasource, mask_array, total_offset)
 
     hash_input = f"{lat}{long}{min_slope}{max_slope}"
     filename = hashlib.sha1(hash_input.encode("UTF-8")).hexdigest()
     filename = f'{filename}.png'
 
-    if not os.path.exists('tiles_output'):
-        os.mkdir('tiles_output')
-
-    img = Image.fromarray(mask_array, 'P')
-    img.putpalette([0,0,0,0, 255,0,0,180], rawmode='RGBA')
-    img.save(f'tiles_output/{filename}')
+    save_array_as_image(mask_array, filename)
 
     return_data = {'filename': filename, 'image_bounds': [upper_left_image_bound, lower_right_image_bound]}
 
@@ -241,7 +251,10 @@ def calculate_slope(lat, long, min_slope, max_slope):
         model_file = '../DGM_Salzburg.tif'
 
     datasource = gdal.Open(model_file)
-    tile_size = 10
+    #global proj4_str
+    #proj4_str = '+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs'
+
+    tile_size = 100
 
     while True:
         filename, return_code = do_flood_fill(lat, long, min_slope, max_slope, tile_size, datasource)
@@ -261,6 +274,6 @@ if __name__ == "__main__":
     #start = time.perf_counter()
     # print("Took %s" % (time.perf_counter() - start))
 
-    lng, lat = 13.0459,47.2613
+    lng, lat = 13.0459, 47.3313
 
     print(calculate_slope(lat, lng, 0, 45))

@@ -26,6 +26,9 @@ class datapoint(BaseModel):
     positionLng: float
 
 
+if not os.path.exists('tiles_output'):
+    os.mkdir('tiles_output')
+
 app.mount(f"/tiles_output", StaticFiles(directory=f"tiles_output"), name="tiles_output")
 
 
