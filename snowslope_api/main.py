@@ -165,7 +165,7 @@ def save_array_as_image(array, filename):
 
 def do_flood_fill(lat, long, min_slope, max_slope, tile_size, datasource):
     databand = datasource.GetRasterBand(1)
-    nodata_value = databand.GetNoDataValue()  # TODO -e28 nodata value?
+    nodata_value = databand.GetNoDataValue()  #TODO -e28 nodata value?
 
     endpoint = transform_wgs84_to_pixel(datasource, (lat, long))
 
@@ -243,14 +243,7 @@ def do_flood_fill(lat, long, min_slope, max_slope, tile_size, datasource):
     return return_data, warning_code
 
 
-def calculate_slope(lat, long, min_slope, max_slope):
-    if os.path.exists('DGM_Salzburg.tif'):
-        model_file = 'DGM_Salzburg.tif'
-
-    elif os.path.exists('../DGM_Salzburg.tif'):
-        model_file = '../DGM_Salzburg.tif'
-
-    datasource = gdal.Open(model_file)
+def calculate_slope(datasource, lat, long, min_slope, max_slope):
     #global proj4_str
     #proj4_str = '+proj=tmerc +lat_0=0 +lon_0=13.3333333333333 +k=1 +x_0=450048.038 +y_0=-4999945.657 +ellps=bessel +units=m +no_defs +type=crs'
 
@@ -276,4 +269,12 @@ if __name__ == "__main__":
 
     lng, lat = 13.0459, 47.3313
 
-    print(calculate_slope(lat, lng, 0, 45))
+    if os.path.exists('DGM_Salzburg.tif'):
+        model_file = 'DGM_Salzburg.tif'
+
+    elif os.path.exists('../DGM_Salzburg.tif'):
+        model_file = '../DGM_Salzburg.tif'
+
+    datasource = gdal.Open(model_file)
+
+    print(calculate_slope(datasource, lat, lng, 0, 45))
